@@ -5699,6 +5699,12 @@
 		(uuid "ef117f65-1955-4190-a99e-89bfe8f4be49")
 	)
 	(junction
+		(at 364.49 224.79)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f16ebec3-e2c9-4f03-b594-6dbba8f96da6")
+	)
+	(junction
 		(at 347.98 78.74)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5731,10 +5737,6 @@
 		(uuid "09096474-15f5-481d-a085-917abbce28d7")
 	)
 	(no_connect
-		(at 368.3 224.79)
-		(uuid "0b72859f-6b0a-4151-8517-b290a466e78c")
-	)
-	(no_connect
 		(at 336.55 217.17)
 		(uuid "3a7b3020-d61a-4a67-ae9f-6073b3015f91")
 	)
@@ -5761,10 +5763,6 @@
 	(no_connect
 		(at 187.96 133.35)
 		(uuid "5ce66843-7961-4d4c-a34f-d10a62fffef5")
-	)
-	(no_connect
-		(at 368.3 227.33)
-		(uuid "65333ca1-7b27-4788-a591-37bc177d2e29")
 	)
 	(no_connect
 		(at 313.69 227.33)
@@ -6174,6 +6172,16 @@
 	)
 	(wire
 		(pts
+			(xy 356.87 224.79) (xy 364.49 224.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "26a67d5f-aca2-4864-8a6a-733fa03d6e60")
+	)
+	(wire
+		(pts
 			(xy 314.96 68.58) (xy 314.96 78.74)
 		)
 		(stroke
@@ -6321,6 +6329,16 @@
 			(type default)
 		)
 		(uuid "305a68da-41b6-4f5f-86ac-2e288bd66bb4")
+	)
+	(wire
+		(pts
+			(xy 364.49 227.33) (xy 368.3 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "31626fd8-09b0-4db0-b679-4a44032579ab")
 	)
 	(wire
 		(pts
@@ -6921,6 +6939,16 @@
 			(type default)
 		)
 		(uuid "6b20e701-7495-4f53-9d89-efa59d5ff920")
+	)
+	(wire
+		(pts
+			(xy 364.49 224.79) (xy 364.49 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6c88d738-d291-4529-82f5-fc9bb45e05a3")
 	)
 	(wire
 		(pts
@@ -7541,6 +7569,16 @@
 			(type default)
 		)
 		(uuid "aa290fbe-0bfd-4dbe-b6f6-8f30f43f70bd")
+	)
+	(wire
+		(pts
+			(xy 364.49 224.79) (xy 368.3 224.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aab61c4b-de2b-4952-9f89-c03a458a1c78")
 	)
 	(wire
 		(pts
@@ -12099,6 +12137,72 @@
 			(project ""
 				(path "/77054b9a-0066-4e8e-8fb2-f8dc67a92039"
 					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 356.87 224.79 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "0a07eb13-a7d3-471b-816e-a702077bb65b")
+		(property "Reference" "#PWR046"
+			(at 356.87 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 356.87 219.71 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 356.87 224.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 356.87 224.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 356.87 224.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d40f3ad7-9a63-422c-a942-909d5aa811dd")
+		)
+		(instances
+			(project "apus"
+				(path "/77054b9a-0066-4e8e-8fb2-f8dc67a92039"
+					(reference "#PWR046")
 					(unit 1)
 				)
 			)

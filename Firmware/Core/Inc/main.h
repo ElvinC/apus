@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "eeprom_emul.h"
+//#include "eeprom_emul.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -51,20 +51,33 @@ extern "C" {
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
+void MX_SUBGHZ_Init(void);
 
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define CONF_440_Pin GPIO_PIN_3
-#define CONF_440_GPIO_Port GPIOB
-#define CONF_868_Pin GPIO_PIN_4
-#define CONF_868_GPIO_Port GPIOB
+#define BUZZER_Pin GPIO_PIN_8
+#define BUZZER_GPIO_Port GPIOA
 #define LED_Pin GPIO_PIN_9
 #define LED_GPIO_Port GPIOA
 #define BOOT_Pin GPIO_PIN_3
 #define BOOT_GPIO_Port GPIOH
+#define CS_FLASH_Pin GPIO_PIN_10
+#define CS_FLASH_GPIO_Port GPIOA
+#define CS_IMU_Pin GPIO_PIN_13
+#define CS_IMU_GPIO_Port GPIOA
+#define CS_BARO_Pin GPIO_PIN_13
+#define CS_BARO_GPIO_Port GPIOC
+#define PYRO2_CON_Pin GPIO_PIN_14
+#define PYRO2_CON_GPIO_Port GPIOC
+#define PYRO1_CON_Pin GPIO_PIN_15
+#define PYRO1_CON_GPIO_Port GPIOC
+#define PYRO2_Pin GPIO_PIN_14
+#define PYRO2_GPIO_Port GPIOA
+#define PYRO1_Pin GPIO_PIN_15
+#define PYRO1_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

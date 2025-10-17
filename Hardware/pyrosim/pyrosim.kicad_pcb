@@ -106,7 +106,7 @@
 			)
 		)
 		(property "Value" "470R"
-			(at 0 1.43 360)
+			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "7ef5a745-28a9-4692-bf0f-c3e87ebb36e7")
 			(effects
@@ -261,7 +261,7 @@
 			(uuid "3367223d-68ee-4fe1-93e1-a6fc5838e3c2")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "072216c6-27c8-4d99-965c-70118e8bb981")
 			(effects
@@ -310,6 +310,7 @@
 		(property "Reference" "J1"
 			(at 4.385 -2.27 90)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "3671612a-632e-4401-a91a-5c8e0060e067")
 			(effects
 				(font
@@ -1054,7 +1055,7 @@
 			(uuid "13715ff5-20b0-4490-b9ec-eb6f1073d037")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 2.77 3.81 360)
+			(at 2.77 3.81 0)
 			(layer "F.Fab")
 			(uuid "9a182445-6003-4006-85db-78e035926efc")
 			(effects
@@ -1139,7 +1140,7 @@
 			)
 		)
 		(property "Value" "470R"
-			(at 0 1.43 360)
+			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "0fb7baeb-acab-450e-924b-ec6471ee4eb6")
 			(effects
@@ -1294,7 +1295,7 @@
 			(uuid "d25e8508-ebf9-4fad-8f83-86684e06038b")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "aec698e3-e2ac-4b5d-805d-6b080aad065d")
 			(effects
@@ -1353,7 +1354,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 0 1.43 360)
+			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "d479fdca-0ae1-4e9c-ba23-07ca7f3f459c")
 			(effects
@@ -1528,7 +1529,7 @@
 			(uuid "bc9c2bc8-94cd-4dbd-b283-8c6be63a1ac2")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "65b11a35-7a88-4ec9-b1b6-9cb47be20cb5")
 			(effects
@@ -1803,7 +1804,7 @@
 			)
 		)
 		(property "Value" "470R"
-			(at 0 1.43 360)
+			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "4bdd220e-57ec-4a58-a7c9-a7d4a77be7d6")
 			(effects
@@ -1958,7 +1959,7 @@
 			(uuid "287af173-8cdb-40bf-bebf-c793cf787b97")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "44c123bd-de0f-4101-bc1e-4d0b77518983")
 			(effects
@@ -2017,7 +2018,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 0 1.43 360)
+			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "2c096adc-32df-441e-a1e2-4a1db3c48f54")
 			(effects
@@ -2192,7 +2193,7 @@
 			(uuid "4f41187f-60ef-4f58-a1cc-8770373a7724")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "edf0b517-4476-4b28-9eb4-759cb769c457")
 			(effects
@@ -2234,16 +2235,101 @@
 			)
 		)
 	)
-	(gr_rect
-		(start 122 79)
-		(end 135 94.5)
+	(gr_arc
+		(start 135 93.5)
+		(mid 134.707107 94.207107)
+		(end 134 94.5)
 		(stroke
 			(width 0.05)
 			(type default)
 		)
-		(fill none)
 		(layer "Edge.Cuts")
-		(uuid "3cc2677c-2d41-4edb-a10b-e4d0afc9d9cd")
+		(uuid "3b41f940-8e0b-4db8-8c76-44650ba62d50")
+	)
+	(gr_line
+		(start 122 93.5)
+		(end 122 80)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "58bc05ac-be65-4930-a9eb-65dd6c86c5d4")
+	)
+	(gr_arc
+		(start 123 94.5)
+		(mid 122.292893 94.207107)
+		(end 122 93.5)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "58cd3e3b-3cf8-4b29-9e02-317eaa5f29b6")
+	)
+	(gr_line
+		(start 123 79)
+		(end 134 79)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "5f8e520e-5972-4b9e-9266-8b2afd18e68b")
+	)
+	(gr_arc
+		(start 134 79)
+		(mid 134.707107 79.292893)
+		(end 135 80)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "aeacb0ce-6ae9-475d-87cb-45b894316fb1")
+	)
+	(gr_line
+		(start 134 94.5)
+		(end 123 94.5)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "d4164c15-ad93-4d43-91c0-cc845579bc36")
+	)
+	(gr_line
+		(start 135 80)
+		(end 135 93.5)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "e703752b-65b1-46cf-a15f-9e11d9d756c4")
+	)
+	(gr_arc
+		(start 122 80)
+		(mid 122.292893 79.292893)
+		(end 123 79)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "Edge.Cuts")
+		(uuid "f181bc72-bc59-4247-9ae8-6420c4a84adf")
+	)
+	(gr_text "PYROSIM"
+		(at 131.7 94 -0)
+		(layer "B.SilkS")
+		(uuid "de5daddf-656e-47b7-aa4f-30241ec2cbd6")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left bottom mirror)
+		)
 	)
 	(gr_text "PYRO2"
 		(at 128.5 91 0)
