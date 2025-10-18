@@ -369,91 +369,6 @@ void rx_test(bool is_tx) {
 
 }
 
-#define SUBGHZ_GPKTCTL1AR 0x6B8
-#define SUBGHZ_GRTXPLDLEN 0x6BB
-#define SUBGHZ_TXADRPTR 0x0802
-void long_packet_test(double frequency) {
-	// Only on revision Y
-	// Partly based on https://github.com/stm32duino/STM32LoRaWAN/blob/6c1e985596f342f5ac2d202c04fbefe2f0643585/src/STM32CubeWL/SubGHz_Phy/stm32_radio_driver/radio_fw.c#L260
-	if (LL_DBGMCU_GetRevisionID() < 0x1003) {
-		return;
-	}
-
-	uint8_t raw_data[1024]; // try to transmit 1024 bytes
-
-	uint32_t bitrate = 1000; // bits per second
-	uint32_t delay_127_us = 1000000 * 128 * 8 / bitrate; // Delay for 127 bytes
-	uint8_t current_payload_length = 255;
-
-	for (int i = 0; i < sizeof(raw_data); i++) {
-		raw_data[i] = i < 128 ? 0x55 : 0xCC; // High tone to low tone
-
-		//raw_data[i] = (uint8_t) i & 0xFF;
-	}
-
-	for (int i = 512; i < sizeof(raw_data); i++) {
-		raw_data[i] = 0b000101; // High tone to low tone
-
-		//raw_data[i] = (uint8_t) i & 0xFF;
-	}
-
-	SetRfFreq(ComputeRfFreq(frequency));
-
-	SetPacketTypeFSK();
-	SetModulationParamsFSK(1000, 0x09, 0x1E, 2500);
-	SetPacketParamsGeneric(32, 0, 0, 0, 0, 255, 1, 0); // Disable everything
-
-	uint32_t last_time = __HAL_TIM_GET_COUNTER(&htim2);
-
-	uint8_t read_ptr = 0;
-	uint8_t write_ptr = 0;
-
-	// Set buffer base addresses to zero
-	uint8_t txbuf[3] = { 0x8F, 0, 0};
-	HAL_SUBGHZ_ExecSetCmd(&hsubghz, txbuf[0], txbuf + 1, sizeof(txbuf) - 1);
-
-
-	// Fill initially
-	HAL_SUBGHZ_WriteBuffer(&hsubghz, 0, raw_data, 255);
-	uint8_t current_buffer_location = 255;
-
-	SetTx(0);
-	HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_GPKTCTL1AR, 0x00000010); // Enable infinite sequence
-
-	bool alternate = true;
-
-	// See https://github.com/stm32duino/STM32LoRaWAN/blob/6c1e985596f342f5ac2d202c04fbefe2f0643585/src/STM32CubeWL/SubGHz_Phy/stm32_radio_driver/radio_fw.c#L741
-
-	while (1) {
-		while ((__HAL_TIM_GET_COUNTER(&htim2) - last_time) < delay_127_us) {
-		}
-		last_time = __HAL_TIM_GET_COUNTER(&htim2);
-
-		HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_TXADRPTR , &read_ptr);
-		HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_GRTXPLDLEN, &write_ptr);
-
-		//current_payload_length = read_ptr - 128; // Loop around
-		current_buffer_location = current_payload_length;
-		current_payload_length += 100;
-		HAL_SUBGHZ_WriteBuffer(&hsubghz, current_buffer_location-1, raw_data + 512, 100);
-		//current_buffer_location += 127;
-		HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_GRTXPLDLEN, current_payload_length);
-		//SetPacketParamsGeneric(32, 0, 0, 0, 0, current_payload_length, 1, 0);
-
-		LED_on();
-
-		HAL_Delay(1);
-
-
-
-		LED_off();
-	}
-
-	while (1) {
-
-	}
-}
-
 /*! @name  Global array that stores the configuration file of BMI270 */
 const uint8_t bmi270_maximum_fifo_config_file[] = { 0xc8, 0x2e, 0x00, 0x2e,
 		0x80, 0x2e, 0x1a, 0x00, 0xc8, 0x2e, 0x00, 0x2e, 0xc8, 0x2e, 0x00, 0x2e,
@@ -691,44 +606,304 @@ static uint16_t sysCRC16(const uint8_t *buffer, uint16_t length, uint16_t crc) {
 	return crc ^ 0xffff;
 }
 
+#define SUBGHZ_GPKTCTL1AR 0x6B8
+#define SUBGHZ_GRTXPLDLEN 0x6BB
+#define SUBGHZ_TXADRPTR 0x0802
+void long_packet_test(double frequency) {
+	// Only on revision Y
+	// Partly based on https://github.com/stm32duino/STM32LoRaWAN/blob/6c1e985596f342f5ac2d202c04fbefe2f0643585/src/STM32CubeWL/SubGHz_Phy/stm32_radio_driver/radio_fw.c#L260
+	if (LL_DBGMCU_GetRevisionID() < 0x1003) {
+		return;
+	}
+
+	BMI270 imu;
+	BMI270_Init(&imu, &hspi1, CS_IMU_GPIO_Port, CS_IMU_Pin);
+
+	HAL_Delay(10);
+	// Read raw gyro and accelerometer data
+	BMI270_ReadGyroAccRaw(&imu);
+	HAL_Delay(10);
+	// Convert raw data to meaningful values
+	BMI270_ConvertGyroAccToFloat(&imu);
+	HAL_Delay(10);
+
+	uint8_t raw_data[2048]; // Max buffer size
+
+	char dest_address[] = "NOCALL1";
+	char source_address[] = "NOCALL7";
+	char addressee[] = "YOU"; // Will be padded to 9 chars
+	char message[128];
+	snprintf(message, 128,
+			":%-9s:Hi From Apus:D, ax:%.2f, ay:%.2f, az:%.2f",
+			addressee, imu.accMPS[0], imu.accMPS[1], imu.accMPS[2]);
+	//char message[] = "Hello world from Apus! This screenshot required: C>Python>C>Apus>Radio>Mic>APRS Decoder. AccX:";
+
+	char content_formatted[256];
+	uint16_t content_pointer = 0;
+
+	for (int i = 0; i < strlen(dest_address); i++) {
+		content_formatted[content_pointer++] = dest_address[i] << 1;
+	}
+
+	for (int i = 0; i < (strlen(source_address) - 1); i++) {
+		content_formatted[content_pointer++] = source_address[i] << 1;
+	}
+
+	// Set LSB
+	content_formatted[content_pointer++] = (source_address[strlen(
+			source_address) - 1] << 1) | 0x01;
+
+	//
+	content_formatted[content_pointer++] = 0x03; // Control Field
+	content_formatted[content_pointer++] = 0xF0; // Protocol ID
+
+	for (int i = 0; i < strlen(message); i++) {
+		content_formatted[content_pointer++] = message[i];
+	}
+
+	uint16_t crc;
+	crc = sysCRC16((uint8_t *)content_formatted, content_pointer, 0xffff);
+
+	content_formatted[content_pointer++] = ((crc) & 0xFF);
+	content_formatted[content_pointer++] = ((crc >> 8) & 0xFF);
+
+	// Numerically controlled oscillator
+	uint16_t NCO_accumulator = 0;
+	uint16_t NCO_addition = 0x2000;
+	uint16_t delta_1200 = 0x2000;
+	uint16_t delta_2200 = 0x3aab;
+
+	bool tncTxBit = true; // The bit being transmitted. True = 1, false = 0
+	uint8_t ones_counter = 0; // Keep track of number if stuffing is needed (5 ones in a row)
+
+	//SetTxInfinitePreamble();
+
+	uint32_t byte_counter = 0;
+	uint8_t bit_counter = 7;
+
+	for (int i = 0; i < sizeof(raw_data); i++) {
+		raw_data[i] = 0x00;
+	}
+
+	void add_bit() {
+		// Add one bit to the transmit buffer
+
+		// Transmits a bit with a NCO
+		for (int sample = 0; sample < 8; sample++) {
+			// Wait until correct cycle
+			NCO_accumulator += NCO_addition;
+			uint8_t osc_mag = (NCO_accumulator >> 15) & 0b00000001;
+
+			raw_data[byte_counter] |= ((uint8_t) osc_mag & 0x01) << bit_counter;
+
+			bit_counter -= 1;
+
+			if (bit_counter == 255) { // If -1, then loop around
+				byte_counter += 1;
+				bit_counter = 7;
+			}
+
+		}
+	}
+
+	uint8_t flag = 0x7E; // Frame marker
+	for (int i = 0; i < 30; i++) {
+		for (int bit = 0; bit < 8; bit++) {
+			if ((flag >> bit) & 0x01) {
+				ones_counter += 1;
+			} else {
+				tncTxBit = !tncTxBit; // Flip
+				ones_counter = 0;
+			}
+
+			NCO_addition = tncTxBit ? delta_1200 : delta_2200;
+			add_bit();
+		}
+	}
+
+	// Actual frame data
+
+	for (int byte = 0; byte < content_pointer; byte++) {
+		for (int bit = 0; bit < 8; bit++) {
+			if (((content_formatted[byte] >> bit) & 0x01) == 0x01) {
+				ones_counter += 1;
+			} else {
+				tncTxBit = !tncTxBit;
+				ones_counter = 0;
+			}
+
+			NCO_addition = tncTxBit ? delta_1200 : delta_2200;
+			add_bit();
+
+			// If bit stuffing is needed
+			if (ones_counter == 5) {
+				tncTxBit = !tncTxBit;
+				ones_counter = 0;
+				NCO_addition = tncTxBit ? delta_1200 : delta_2200;
+
+				add_bit();
+			}
+		}
+	}
+
+	// End frame marker
+	for (int i = 0; i < 30; i++) {
+		for (int bit = 0; bit < 8; bit++) {
+			if ((flag >> bit) & 0x01) {
+				ones_counter += 1;
+			} else {
+				tncTxBit = !tncTxBit; //Flip
+				ones_counter = 0;
+			}
+
+			NCO_addition = tncTxBit ? delta_1200 : delta_2200;
+			add_bit();
+		}
+	}
+
+	HAL_Delay(1);
+
+	// THE ACTUAL TRANSMISSION STUFF
+	uint32_t bitrate = 9600; // bits per second
+	uint32_t delay_127_us = 1000000 * 128 * 8 / bitrate; // Delay for 127 bytes
+
+	for (int repeat = 0; repeat < 1; repeat++) {
+
+		SetRfFreq(ComputeRfFreq(frequency));
+
+		SetPacketTypeFSK();
+		SetModulationParamsFSK(bitrate, 0x09, 0x1E, 2500); // For some rason bitrate of 9600 is 1.13x too slow...
+		SetPacketParamsGeneric(32, 0, 0, 0, 0, 255, 1, 0); // Disable everything
+
+		uint32_t last_time = __HAL_TIM_GET_COUNTER(&htim2);
+
+		uint8_t read_ptr = 0;
+		uint8_t write_ptr = 0;
+
+		// Set buffer base addresses to zero
+		uint8_t txbuf[3] = { 0x8F, 0, 0 };
+		HAL_SUBGHZ_ExecSetCmd(&hsubghz, txbuf[0], txbuf + 1, sizeof(txbuf) - 1);
+		HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_TXADRPTR, 0);
+
+		// Fill initially
+		HAL_SUBGHZ_WriteBuffer(&hsubghz, 0, raw_data, 255);
+
+		// See https://github.com/stm32duino/STM32LoRaWAN/blob/6c1e985596f342f5ac2d202c04fbefe2f0643585/src/STM32CubeWL/SubGHz_Phy/stm32_radio_driver/radio_fw.c#L741
+
+		uint8_t RadioBufferOffset = 0; // Initial chunk sent
+
+		SetStandbyXOSC();
+		HAL_Delay(1);
+		SetTx(0);
+
+		//Enable infinite sequence
+		uint8_t reg;
+		HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_GPKTCTL1AR, &reg);
+		HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_GPKTCTL1AR, reg | 0x02);
+
+		//HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_GPKTCTL1AR, 0x00000010); // Enable infinite sequence
+		uint16_t sent_offset = 255; // Initial chunk
+
+		for (int i = 0; i < 100; i++) {
+			while ((__HAL_TIM_GET_COUNTER(&htim2) - last_time) < delay_127_us) {
+			}
+			last_time = __HAL_TIM_GET_COUNTER(&htim2);
+
+			/*
+			 HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_TXADRPTR , &read_ptr);
+			 HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_GRTXPLDLEN, &write_ptr);
+
+			 //current_payload_length = read_ptr - 128; // Loop around
+			 current_buffer_location = current_payload_length;
+			 current_payload_length += 100;
+			 HAL_SUBGHZ_WriteBuffer(&hsubghz, write_ptr, raw_data + 512, 100);
+			 //current_buffer_location += 127;
+			 HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_GRTXPLDLEN, write_ptr + 100);
+			 //SetPacketParamsGeneric(32, 0, 0, 0, 0, current_payload_length, 1, 0);
+
+
+			 */
+
+			uint8_t chunk_size;
+			/*records how much has been sent*/
+			HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_TXADRPTR, &read_ptr);
+			HAL_SUBGHZ_ReadRegister(&hsubghz, SUBGHZ_GRTXPLDLEN, &write_ptr);
+
+			/*calculates how much bytes were sent since previous radio loading*/
+			uint8_t bytes_sent = read_ptr - RadioBufferOffset;
+			/*bytes already loaded in the radio to send*/
+			uint8_t bytes_loaded = write_ptr - read_ptr;
+
+			/* Update offset tx, intentional wrap around*/
+			RadioBufferOffset += bytes_sent;
+
+			/*last chunk to send*/
+
+			chunk_size = bytes_sent; // Fully fill
+
+			/*write next chunk*/
+
+			HAL_SUBGHZ_WriteBuffer(&hsubghz, write_ptr, raw_data + sent_offset,
+					chunk_size);
+
+			/*update end ptr*/
+			HAL_SUBGHZ_WriteRegister(&hsubghz, SUBGHZ_GRTXPLDLEN,
+					(uint8_t) (chunk_size + write_ptr));
+
+
+
+
+			if (sent_offset > byte_counter) {
+				break;
+			}
+			sent_offset += chunk_size;
+
+			LED_on();
+
+			HAL_Delay(1);
+
+			LED_off();
+		}
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_ADC_Init();
-  MX_CRC_Init();
-  MX_COMP2_Init();
-  MX_SPI1_Init();
-  MX_USART2_UART_Init();
-  MX_TIM2_Init();
-  /* USER CODE BEGIN 2 */
-  MX_SUBGHZ_Init();
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_ADC_Init();
+	MX_CRC_Init();
+	MX_COMP2_Init();
+	MX_SPI1_Init();
+	MX_USART2_UART_Init();
+	MX_TIM2_Init();
+	/* USER CODE BEGIN 2 */
+	MX_SUBGHZ_Init();
 
 	// Enable timer 2
 	HAL_TIM_Base_Start(&htim2);
@@ -824,13 +999,16 @@ int main(void)
 		memcpy(FSKtones, CustomFSKfrequencies, sizeof(FSKtones));
 	}
 
-  /* USER CODE END 2 */
+	/* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 
+	while (1) {
+		long_packet_test(433.200);
+		HAL_Delay(3000);
+	}
 
-	long_packet_test(433.200);
 
 	/*
 	 while (1) {
@@ -878,7 +1056,6 @@ int main(void)
 			CWTXpwrs[i] = maxPower - stepsize * i;
 		}
 	}
-
 
 	while (0) {
 
@@ -1096,9 +1273,9 @@ int main(void)
 			HAL_Delay(5);
 		}
 
-    /* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+		/* USER CODE BEGIN 3 */
 	}
 
 	// Standard beacon function:
@@ -1168,375 +1345,355 @@ int main(void)
 
 		/* USER CODE BEGIN 3 */
 	}
-  /* USER CODE END 3 */
+	/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.HSEDiv = RCC_HSE_DIV1;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.HSEDiv = RCC_HSE_DIV1;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Configure the SYSCLKSource, HCLK, PCLK1 and PCLK2 clocks dividers
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK3|RCC_CLOCKTYPE_HCLK
-                              |RCC_CLOCKTYPE_SYSCLK|RCC_CLOCKTYPE_PCLK1
-                              |RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.AHBCLK3Divider = RCC_SYSCLK_DIV1;
+	/** Configure the SYSCLKSource, HCLK, PCLK1 and PCLK2 clocks dividers
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK3 | RCC_CLOCKTYPE_HCLK
+			| RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.AHBCLK3Divider = RCC_SYSCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 /**
-  * @brief ADC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC_Init(void)
-{
+ * @brief ADC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_ADC_Init(void) {
 
-  /* USER CODE BEGIN ADC_Init 0 */
+	/* USER CODE BEGIN ADC_Init 0 */
 
-  /* USER CODE END ADC_Init 0 */
+	/* USER CODE END ADC_Init 0 */
 
-  /* USER CODE BEGIN ADC_Init 1 */
+	/* USER CODE BEGIN ADC_Init 1 */
 
-  /* USER CODE END ADC_Init 1 */
+	/* USER CODE END ADC_Init 1 */
 
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc.Instance = ADC;
-  hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
-  hadc.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  hadc.Init.LowPowerAutoWait = DISABLE;
-  hadc.Init.LowPowerAutoPowerOff = DISABLE;
-  hadc.Init.ContinuousConvMode = DISABLE;
-  hadc.Init.NbrOfConversion = 1;
-  hadc.Init.DiscontinuousConvMode = DISABLE;
-  hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc.Init.DMAContinuousRequests = DISABLE;
-  hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-  hadc.Init.SamplingTimeCommon1 = ADC_SAMPLETIME_1CYCLE_5;
-  hadc.Init.SamplingTimeCommon2 = ADC_SAMPLETIME_1CYCLE_5;
-  hadc.Init.OversamplingMode = DISABLE;
-  hadc.Init.TriggerFrequencyMode = ADC_TRIGGER_FREQ_HIGH;
-  if (HAL_ADC_Init(&hadc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC_Init 2 */
+	/** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+	 */
+	hadc.Instance = ADC;
+	hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
+	hadc.Init.Resolution = ADC_RESOLUTION_12B;
+	hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc.Init.ScanConvMode = ADC_SCAN_DISABLE;
+	hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	hadc.Init.LowPowerAutoWait = DISABLE;
+	hadc.Init.LowPowerAutoPowerOff = DISABLE;
+	hadc.Init.ContinuousConvMode = DISABLE;
+	hadc.Init.NbrOfConversion = 1;
+	hadc.Init.DiscontinuousConvMode = DISABLE;
+	hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+	hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+	hadc.Init.DMAContinuousRequests = DISABLE;
+	hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+	hadc.Init.SamplingTimeCommon1 = ADC_SAMPLETIME_1CYCLE_5;
+	hadc.Init.SamplingTimeCommon2 = ADC_SAMPLETIME_1CYCLE_5;
+	hadc.Init.OversamplingMode = DISABLE;
+	hadc.Init.TriggerFrequencyMode = ADC_TRIGGER_FREQ_HIGH;
+	if (HAL_ADC_Init(&hadc) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN ADC_Init 2 */
 
-  /* USER CODE END ADC_Init 2 */
+	/* USER CODE END ADC_Init 2 */
 
 }
 
 /**
-  * @brief COMP2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_COMP2_Init(void)
-{
+ * @brief COMP2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_COMP2_Init(void) {
 
-  /* USER CODE BEGIN COMP2_Init 0 */
+	/* USER CODE BEGIN COMP2_Init 0 */
 
-  /* USER CODE END COMP2_Init 0 */
+	/* USER CODE END COMP2_Init 0 */
 
-  /* USER CODE BEGIN COMP2_Init 1 */
+	/* USER CODE BEGIN COMP2_Init 1 */
 
-  /* USER CODE END COMP2_Init 1 */
-  hcomp2.Instance = COMP2;
-  hcomp2.Init.InputMinus = COMP_INPUT_MINUS_3_4VREFINT;
-  hcomp2.Init.InputPlus = COMP_INPUT_PLUS_IO1;
-  hcomp2.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
-  hcomp2.Init.Hysteresis = COMP_HYSTERESIS_NONE;
-  hcomp2.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
-  hcomp2.Init.Mode = COMP_POWERMODE_HIGHSPEED;
-  hcomp2.Init.WindowMode = COMP_WINDOWMODE_DISABLE;
-  hcomp2.Init.TriggerMode = COMP_TRIGGERMODE_NONE;
-  if (HAL_COMP_Init(&hcomp2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN COMP2_Init 2 */
+	/* USER CODE END COMP2_Init 1 */
+	hcomp2.Instance = COMP2;
+	hcomp2.Init.InputMinus = COMP_INPUT_MINUS_3_4VREFINT;
+	hcomp2.Init.InputPlus = COMP_INPUT_PLUS_IO1;
+	hcomp2.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+	hcomp2.Init.Hysteresis = COMP_HYSTERESIS_NONE;
+	hcomp2.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
+	hcomp2.Init.Mode = COMP_POWERMODE_HIGHSPEED;
+	hcomp2.Init.WindowMode = COMP_WINDOWMODE_DISABLE;
+	hcomp2.Init.TriggerMode = COMP_TRIGGERMODE_NONE;
+	if (HAL_COMP_Init(&hcomp2) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN COMP2_Init 2 */
 
-  /* USER CODE END COMP2_Init 2 */
+	/* USER CODE END COMP2_Init 2 */
 
 }
 
 /**
-  * @brief CRC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CRC_Init(void)
-{
+ * @brief CRC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_CRC_Init(void) {
 
-  /* USER CODE BEGIN CRC_Init 0 */
+	/* USER CODE BEGIN CRC_Init 0 */
 
-  /* USER CODE END CRC_Init 0 */
+	/* USER CODE END CRC_Init 0 */
 
-  /* USER CODE BEGIN CRC_Init 1 */
+	/* USER CODE BEGIN CRC_Init 1 */
 
-  /* USER CODE END CRC_Init 1 */
-  hcrc.Instance = CRC;
-  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
-  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
-  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
-  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
-  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
-  if (HAL_CRC_Init(&hcrc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CRC_Init 2 */
+	/* USER CODE END CRC_Init 1 */
+	hcrc.Instance = CRC;
+	hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
+	hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+	hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+	hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+	hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
+	if (HAL_CRC_Init(&hcrc) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN CRC_Init 2 */
 
-  /* USER CODE END CRC_Init 2 */
+	/* USER CODE END CRC_Init 2 */
 
 }
 
 /**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
+ * @brief SPI1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_SPI1_Init(void) {
 
-  /* USER CODE BEGIN SPI1_Init 0 */
+	/* USER CODE BEGIN SPI1_Init 0 */
 
-  /* USER CODE END SPI1_Init 0 */
+	/* USER CODE END SPI1_Init 0 */
 
-  /* USER CODE BEGIN SPI1_Init 1 */
+	/* USER CODE BEGIN SPI1_Init 1 */
 
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 7;
-  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
+	/* USER CODE END SPI1_Init 1 */
+	/* SPI1 parameter configuration*/
+	hspi1.Instance = SPI1;
+	hspi1.Init.Mode = SPI_MODE_MASTER;
+	hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+	hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+	hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+	hspi1.Init.NSS = SPI_NSS_SOFT;
+	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+	hspi1.Init.CRCPolynomial = 7;
+	hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+	hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN SPI1_Init 2 */
 
-  /* USER CODE END SPI1_Init 2 */
+	/* USER CODE END SPI1_Init 2 */
 
 }
 
 /**
-  * @brief SUBGHZ Initialization Function
-  * @param None
-  * @retval None
-  */
-void MX_SUBGHZ_Init(void)
-{
+ * @brief SUBGHZ Initialization Function
+ * @param None
+ * @retval None
+ */
+void MX_SUBGHZ_Init(void) {
 
-  /* USER CODE BEGIN SUBGHZ_Init 0 */
+	/* USER CODE BEGIN SUBGHZ_Init 0 */
 
-  /* USER CODE END SUBGHZ_Init 0 */
+	/* USER CODE END SUBGHZ_Init 0 */
 
-  /* USER CODE BEGIN SUBGHZ_Init 1 */
+	/* USER CODE BEGIN SUBGHZ_Init 1 */
 
-  /* USER CODE END SUBGHZ_Init 1 */
-  hsubghz.Init.BaudratePrescaler = SUBGHZSPI_BAUDRATEPRESCALER_2;
-  if (HAL_SUBGHZ_Init(&hsubghz) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SUBGHZ_Init 2 */
+	/* USER CODE END SUBGHZ_Init 1 */
+	hsubghz.Init.BaudratePrescaler = SUBGHZSPI_BAUDRATEPRESCALER_2;
+	if (HAL_SUBGHZ_Init(&hsubghz) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN SUBGHZ_Init 2 */
 
-  /* USER CODE END SUBGHZ_Init 2 */
+	/* USER CODE END SUBGHZ_Init 2 */
 
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
+ * @brief TIM2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM2_Init(void) {
 
-  /* USER CODE BEGIN TIM2_Init 0 */
+	/* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM2_Init 0 */
+	/* USER CODE END TIM2_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
 
-  /* USER CODE BEGIN TIM2_Init 1 */
+	/* USER CODE BEGIN TIM2_Init 1 */
 
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 32;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
+	/* USER CODE END TIM2_Init 1 */
+	htim2.Instance = TIM2;
+	htim2.Init.Prescaler = 32;
+	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim2.Init.Period = 4294967295;
+	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
+		Error_Handler();
+	}
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM2_Init 2 */
+	/* USER CODE END TIM2_Init 2 */
 
 }
 
 /**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void) {
 
-  /* USER CODE BEGIN USART2_Init 0 */
+	/* USER CODE BEGIN USART2_Init 0 */
 
-  /* USER CODE END USART2_Init 0 */
+	/* USER CODE END USART2_Init 0 */
 
-  /* USER CODE BEGIN USART2_Init 1 */
+	/* USER CODE BEGIN USART2_Init 1 */
 
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 9600;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
+	/* USER CODE END USART2_Init 1 */
+	huart2.Instance = USART2;
+	huart2.Init.BaudRate = 9600;
+	huart2.Init.WordLength = UART_WORDLENGTH_8B;
+	huart2.Init.StopBits = UART_STOPBITS_1;
+	huart2.Init.Parity = UART_PARITY_NONE;
+	huart2.Init.Mode = UART_MODE_TX_RX;
+	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+	huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+	huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+	if (HAL_UART_Init(&huart2) != HAL_OK) {
+		Error_Handler();
+	}
+	if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	if (HAL_UARTEx_DisableFifoMode(&huart2) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART2_Init 2 */
 
-  /* USER CODE END USART2_Init 2 */
+	/* USER CODE END USART2_Init 2 */
 
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_GPIO_Init(void) {
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+	/* USER CODE BEGIN MX_GPIO_Init_1 */
+	/* USER CODE END MX_GPIO_Init_1 */
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOH_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, BUZZER_Pin|LED_Pin|CS_FLASH_Pin|CS_IMU_Pin
-                          |PYRO2_Pin|PYRO1_Pin, GPIO_PIN_RESET);
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOA,
+	BUZZER_Pin | LED_Pin | CS_FLASH_Pin | CS_IMU_Pin | PYRO2_Pin | PYRO1_Pin,
+			GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(CS_BARO_GPIO_Port, CS_BARO_Pin, GPIO_PIN_RESET);
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(CS_BARO_GPIO_Port, CS_BARO_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : BUZZER_Pin LED_Pin CS_FLASH_Pin CS_IMU_Pin
-                           PYRO2_Pin PYRO1_Pin */
-  GPIO_InitStruct.Pin = BUZZER_Pin|LED_Pin|CS_FLASH_Pin|CS_IMU_Pin
-                          |PYRO2_Pin|PYRO1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	/*Configure GPIO pins : BUZZER_Pin LED_Pin CS_FLASH_Pin CS_IMU_Pin
+	 PYRO2_Pin PYRO1_Pin */
+	GPIO_InitStruct.Pin = BUZZER_Pin | LED_Pin | CS_FLASH_Pin | CS_IMU_Pin
+			| PYRO2_Pin | PYRO1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : BOOT_Pin */
-  GPIO_InitStruct.Pin = BOOT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(BOOT_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : BOOT_Pin */
+	GPIO_InitStruct.Pin = BOOT_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(BOOT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : CS_BARO_Pin */
-  GPIO_InitStruct.Pin = CS_BARO_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(CS_BARO_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : CS_BARO_Pin */
+	GPIO_InitStruct.Pin = CS_BARO_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(CS_BARO_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PYRO2_CON_Pin PYRO1_CON_Pin */
-  GPIO_InitStruct.Pin = PYRO2_CON_Pin|PYRO1_CON_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+	/*Configure GPIO pins : PYRO2_CON_Pin PYRO1_CON_Pin */
+	GPIO_InitStruct.Pin = PYRO2_CON_Pin | PYRO1_CON_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+	/* USER CODE BEGIN MX_GPIO_Init_2 */
+	/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -1631,15 +1788,10 @@ void SetPacketParamsGeneric(uint16_t preamble_length,
 		uint8_t pkt_type, uint8_t payloadlength, uint8_t crc_type,
 		uint8_t whitening) {
 
-	uint8_t txbuf[10] = { 0x8C, (preamble_length >> 8) & 0xFF, preamble_length & 0xFF,
-		0b00000111 & preamble_det_length,
-		0b01111111 & sync_length,
-		0b00000011 & addr_comp,
-		0b00000011 & pkt_type,
-		payloadlength,
-		0b00000011 & crc_type,
-		0b00000001 & whitening
-	};
+	uint8_t txbuf[10] = { 0x8C, (preamble_length >> 8) & 0xFF, preamble_length
+			& 0xFF, 0b00000111 & preamble_det_length, 0b01111111 & sync_length,
+			0b00000011 & addr_comp, 0b00000011 & pkt_type, payloadlength,
+			0b00000011 & crc_type, 0b00000001 & whitening };
 
 	HAL_SUBGHZ_ExecSetCmd(&hsubghz, txbuf[0], txbuf + 1, sizeof(txbuf) - 1);
 }
@@ -1685,17 +1837,16 @@ void CWBeep(int8_t powerdBm, uint32_t lengthMs) {
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-  /* USER CODE END Error_Handler_Debug */
+	/* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT

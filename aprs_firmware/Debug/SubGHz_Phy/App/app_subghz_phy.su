@@ -1,0 +1,2 @@
+../SubGHz_Phy/App/app_subghz_phy.c:62:6:MX_SubGHz_Phy_Init	8	static
+../SubGHz_Phy/App/app_subghz_phy.c:77:6:MX_SubGHz_Phy_Process	4	static
