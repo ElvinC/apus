@@ -5,6 +5,8 @@ import numpy as np
 import random, struct
 from scipy import signal
 
+
+
 filename = "noise2.wav"
 
 samplerate = 9600
@@ -23,7 +25,7 @@ aprs_formatted = []
 
 dest_address = "NOCALL1"
 source_address = "NOCALL7"
-message = ":Hello World from Apus! This required: C>Python>C>Apus>Radio>Mic>APRS Decoder. AccX:8.23"
+message = ":YOU      :Y"
 
 content_formatted = []
 
@@ -71,6 +73,22 @@ bitstream = []
 
 # Transmit the frame
 
+def add_bit():
+    global accumulator
+
+    bitstream.append(tncTxBit)
+    for sample in range(8):
+
+        accumulator = ((accumulator + this_tone) % 0x010000) & 0xFFFF
+        #idx = (accumulator >> 13) & 0b100 # Only high/low
+        #track.append(-0.5 if idx else 0.5)
+        #track.append(freq_lut[idx])
+        idx = (accumulator >> 15) & 0b00000001
+        track.append(-0.5 if idx else 0.5)
+        #track.append(idx)
+
+
+
 for i in range(30):
     flag = 0x7E
     for bit in range(8):
@@ -83,12 +101,7 @@ for i in range(30):
 
         this_tone = delta_1200 if tncTxBit == 1 else delta_2200
         
-        bitstream.append(tncTxBit)
-        for sample in range(8):
-
-            accumulator = ((accumulator + this_tone) % 0x010000) & 0xFFFF
-            idx = (accumulator >> 13) & 0b111
-            track.append(freq_lut[idx])
+        add_bit()
 
 # Start by transmitting frame
 for byte in range(len(content_formatted)):
@@ -102,12 +115,7 @@ for byte in range(len(content_formatted)):
 
         this_tone = delta_1200 if tncTxBit == 1 else delta_2200
 
-        bitstream.append(tncTxBit)
-        for sample in range(8):
-
-            accumulator = ((accumulator + this_tone) % 0x010000) & 0xFFFF
-            idx = (accumulator >> 13) & 0b111
-            track.append(freq_lut[idx])
+        add_bit()
 
         # Bit stuffing, flip and transmit
         if ones_counter == 5:
@@ -116,40 +124,25 @@ for byte in range(len(content_formatted)):
 
             this_tone = delta_1200 if tncTxBit == 1 else delta_2200
 
-            bitstream.append(tncTxBit)
-            for sample in range(8):
-
-                accumulator = ((accumulator + this_tone) % 0x010000) & 0xFFFF
-                idx = (accumulator >> 13) & 0b111
-                track.append(freq_lut[idx])
+            add_bit()
 
 # Transmit the frame
 flag = 0x7E
-for bit in range(8):
+for i in range(30):
+    for bit in range(8):
 
-    if (flag >> bit) & 0x01:
-        ones_counter += 1
-    else:
-        tncTxBit = tncTxBit ^ 1 # Flip
-        ones_counter = 0
+        if (flag >> bit) & 0x01:
+            ones_counter += 1
+        else:
+            tncTxBit = tncTxBit ^ 1 # Flip
+            ones_counter = 0
 
-    this_tone = delta_1200 if tncTxBit == 1 else delta_2200
-    
-    bitstream.append(tncTxBit)
-    for sample in range(8):
+        this_tone = delta_1200 if tncTxBit == 1 else delta_2200
+        
+        add_bit()
 
-        accumulator = ((accumulator + this_tone) % 0x010000) & 0xFFFF
-        idx = (accumulator >> 13) & 0b111
-        track.append(freq_lut[idx])
-
-
-print("".join([str(x) for x in bitstream]))
-
-for i in range(1200):
-    accumulator = ((accumulator + delta_2200) % 0x010000) & 0xFFFF
-    idx = (accumulator >> 13) & 0b111
-    track.append(freq_lut[idx])
-
+#print("".join([str(b) for b in track]))
+#print("".join([str(x) for x in bitstream]))
 
 # Put the channels together
 audio = np.array([np.array(track)]).T
